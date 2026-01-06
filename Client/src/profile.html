@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link href="./output.css" rel="stylesheet">
+</head>
+
+<body class="bg-[#faf7f2] text-gray-800">
+
+<!-- ================= NAVBAR ================= -->
+<nav class="bg-white shadow sticky top-0 z-50">
+  <div class="max-w-7xl mx-auto px-4 py-3 flex justify-between items-center">
+    <h1 class="text-xl font-bold text-orange-600"><a href="index.html">🍲 RecipeShare</a></h1>
+    <button onclick="logout()" class="bg-orange-500 text-white px-4 py-2 rounded-xl">
+      Logout
+    </button>
+  </div>
+</nav>
+
+<!-- ================= PROFILE HEADER ================= -->
+<section class="max-w-7xl mx-auto px-4 py-8">
+  <div class="bg-white rounded-2xl shadow p-6 flex flex-col sm:flex-row items-center gap-6">
+    <img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTypXUpuBp-yC6vlPgFeFiJNiERuMp2BYOInA&s" class="w-24 h-24 rounded-full"/>
+    <div class="text-center sm:text-left">
+      <h2 id="username" class="text-2xl font-bold">User Name</h2>
+      <p id="email" class="text-gray-500">user@email.com</p>
+      <div class="flex gap-4 mt-3 justify-center sm:justify-start">
+        <span id="recipeCount" class="text-sm">🍽️ 0 Recipes</span>
+        <span id="likeCount" class="text-sm">❤️ 0 Likes</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= MAIN CONTENT ================= -->
+<section class="max-w-7xl mx-auto px-4 pb-16 grid grid-cols-1 lg:grid-cols-3 gap-8">
+
+  <!-- ===== ADD RECIPE ===== -->
+  <div class="lg:col-span-1 bg-white rounded-2xl shadow p-6">
+    <h3 class="text-xl font-semibold mb-4">➕ Add Recipe</h3>
+
+    <form id="addRecipeForm" class="space-y-3">
+      <input required type="text" id="title" placeholder="Recipe Title"
+        class="w-full border rounded-xl px-4 py-2"/>
+
+      <textarea required id="description" placeholder="Description"
+        class="w-full border rounded-xl px-4 py-2"></textarea>
+
+      <input required type="text" id="ingredients"
+        placeholder="Ingredients (comma separated)"
+        class="w-full border rounded-xl px-4 py-2"/>
+
+      <input required type="text" id="cookTime" placeholder="Cooking Time"
+        class="w-full border rounded-xl px-4 py-2"/>
+
+      <input  type="text" id="image"
+        placeholder="Image URL"
+        class="w-full border rounded-xl px-4 py-2"/>
+
+      <button
+        class="w-full bg-orange-500 hover:bg-orange-600 text-white py-2 rounded-xl">
+        Publish Recipe
+      </button>
+    </form>
+  </div>
+
+  <!-- ===== MY RECIPES ===== -->
+  <div class="lg:col-span-2 space-y-8">
+
+    <!-- My Recipes -->
+    <div>
+      <h3 class="text-xl font-semibold mb-4">📘 My Recipes</h3>
+      <div id="myRecipes" class="grid grid-cols-1 sm:grid-cols-2 gap-6"></div>
+    </div>
+
+    <!-- Liked Recipes -->
+    <div>
+      <h3 class="text-xl font-semibold mb-4">❤️ Liked Recipes</h3>
+      <div id="likedRecipes" class="grid grid-cols-1 sm:grid-cols-2 gap-6"></div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ===== EDIT RECIPE MODAL ===== -->
+<div
+  id="editRecipeModal"
+  class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center"
+>
+  <div class="bg-white rounded-2xl w-full max-w-lg p-6 relative">
+
+    <!-- Close button -->
+    <button
+      onclick="closeEditModal()"
+      class="absolute top-3 right-3 text-gray-500 text-xl"
+    >
+      ✕
+    </button>
+
+    <h2 class="text-xl font-semibold mb-4">Edit Recipe</h2>
+
+    <form id="editRecipeForm">
+      <input
+        id="editTitle"
+        type="text"
+        placeholder="Recipe Title"
+        class="w-full border rounded-lg px-3 py-2 mb-3"
+        required
+      />
+
+      <textarea
+        id="editDescription"
+        placeholder="Description"
+        class="w-full border rounded-lg px-3 py-2 mb-3"
+        required
+      ></textarea>
+
+      <input
+        id="editIngredients"
+        type="text"
+        placeholder="Ingredients (comma separated)"
+        class="w-full border rounded-lg px-3 py-2 mb-4"
+        required
+      />
+       <!-- ✅ IMAGE URL INPUT -->
+  <input
+    id="editImageUrl"
+    type="url"
+    placeholder="Image URL"
+    class="w-full border rounded-lg px-3 py-2 mb-4"
+  />
+
+      <button
+        type="submit"
+        class="w-full bg-orange-500 text-white py-2 rounded-lg hover:bg-orange-600"
+        
+      >
+        Update Recipe
+      </button>
+    </form>
+
+  </div>
+</div>
+
+
+<!-- ================= SCRIPT ================= -->
+<script>
+const API = "http://localhost:5000/api/recipes";
+const token = localStorage.getItem("token");
+console.log("Token:", token);
+if (!token) {
+  window.location.href = "login.html";
+  
+}
+
+function logout() {
+  localStorage.removeItem("token");
+  window.location.href = "login.html";
+}
+
+/* ---------------- USER INFO ---------------- */
+async function loadProfile() {
+  const res = await fetch(`${API}/users/me`, {
+    headers: { "x-token": token }
+  });
+  const user = await res.json();
+
+  username.innerText = user.name;
+  email.innerText = user.email;
+}
+
+/* ---------------- ADD RECIPE ---------------- */
+document.getElementById("addRecipeForm").addEventListener("submit", async e => {
+  e.preventDefault();
+
+  const recipe = {
+    title: title.value,
+    description: description.value,
+    ingredients: ingredients.value.split(",").map(i => i.trim()),
+    cookTime: cookTime.value,
+    image: image.value
+  };
+
+  await fetch(`${API}/add`, {
+    method: "POST",
+    headers: {
+      "x-token": token,
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify(recipe)
+  });
+
+  e.target.reset();
+  loadMyRecipes();
+});
+
+/* ---------------- MY RECIPES ---------------- */
+async function loadMyRecipes() {
+  const res = await fetch(`${API}/users/my-recipes`, {
+    headers: { "x-token": token }
+  });
+  const recipes = await res.json();
+
+  recipeCount.innerText = `🍽️ ${recipes.length} Recipes`;
+
+  myRecipes.innerHTML = "";
+  recipes.forEach(r => {
+    myRecipes.innerHTML += recipeCard(r, true);
+  });
+}
+
+/* ---------------- LIKED RECIPES ---------------- */
+async function loadLikedRecipes() {
+  const res = await fetch(`${API}/users/liked-recipes`, {
+    headers: { "x-token": token }
+  });
+  const recipes = await res.json();
+
+  likeCount.innerText = `❤️ ${recipes.length} Likes`;
+
+  likedRecipes.innerHTML = "";
+  recipes.forEach(r => {
+    likedRecipes.innerHTML += recipeCard(r, false);
+  });
+}
+
+/* ---------------- CARD ---------------- */
+function recipeCard(recipe, canDelete) {
+  return `
+    <div class="bg-white rounded-2xl shadow hover:shadow-lg transition">
+      <img
+        src="${recipe.imageUrl || 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQWDg_529nPl816JEFoaKAEzaeXWyw0YQ7v_8Vq0ctw&s'}"
+        class="h-40 w-full object-cover rounded-t-2xl"
+      />
+
+      <div class="p-4">
+        <h4 class="font-semibold">${recipe.title}</h4>
+        <p class="text-sm text-gray-600 line-clamp-2">
+          ${recipe.description}
+        </p>
+
+        ${
+          canDelete
+            ? `
+          <div class="flex gap-4 mt-3">
+            <button
+              onclick="openEditRecipe('${recipe._id}')"
+              class="text-blue-500 text-sm"
+            >
+              Edit
+            </button>
+
+            <button
+              onclick="deleteRecipe('${recipe._id}')"
+              class="text-red-500 text-sm"
+            >
+              Delete
+            </button>
+          </div>
+        `
+            : ""
+        }
+      </div>
+    </div>
+  `;
+}
+/* ---------------- update ---------------- */
+ let currentRecipeId = null;
+
+async function openEditRecipe(id) {
+  currentRecipeId = id;
+
+  const res = await fetch(`${API}/${id}`);
+  const recipe = await res.json();
+
+  document.getElementById("editTitle").value = recipe.title;
+  document.getElementById("editDescription").value = recipe.description;
+  document.getElementById("editIngredients").value =
+    recipe.ingredients.join(", ");
+    document.getElementById("editImageUrl").value =
+  recipe.imageUrl || "";
+
+
+  // show modal / form
+  document.getElementById("editRecipeModal").classList.remove("hidden");
+}
+async function updateRecipe() {
+  try {
+    const token = localStorage.getItem("token");
+    if (!token) return;
+
+    const title = document.getElementById("editTitle").value;
+    const description = document.getElementById("editDescription").value;
+    const ingredients = document
+      .getElementById("editIngredients")
+      .value
+      .split(",")
+      .map(i => i.trim());
+      const imageUrl = document.getElementById("editImageUrl").value;
+
+    const res = await fetch(`${API}/${currentRecipeId}`, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        "x-token": token,
+      },
+      body: JSON.stringify({ title, description, ingredients,imageUrl }),
+    });
+      console.log("Recipe updated successfully");
+    if (!res.ok) throw new Error();
+    
+    alert("Recipe updated");
+    document.getElementById("editRecipeModal").classList.add("hidden");
+    loadMyRecipes();
+
+  } catch (err) {
+    alert("Update failed");
+  }
+}
+
+function closeEditModal() {
+  document.getElementById("editRecipeModal").classList.add("hidden");
+  currentRecipeId = null;
+}
+ document
+  .getElementById("editRecipeForm")
+  .addEventListener("submit", (e) => {
+    e.preventDefault();
+    updateRecipe();
+  });
+
+
+
+/* ---------------- DELETE ---------------- */
+async function deleteRecipe(id) {
+  try {
+    if (!confirm("Delete this recipe?")) return;
+
+    const token = localStorage.getItem("token");
+    if (!token) {
+      window.location.href = "login.html";
+      return;
+    }
+
+    const res = await fetch(`${API}/${id}`, {
+      method: "DELETE",
+      headers: {
+        "x-token": token, // ✅ FIXED
+      },
+    });
+
+    if (!res.ok) {
+      throw new Error("Failed to delete recipe");
+    }
+
+    alert("Recipe deleted successfully");
+    loadMyRecipes(); // refresh list
+
+  } catch (error) {
+    console.error("DELETE RECIPE ERROR:", error);
+    alert("Unable to delete recipe");
+  }
+}
+
+
+
+
+/* ---------------- INIT ---------------- */
+loadProfile();
+loadMyRecipes();
+loadLikedRecipes();
+</script>
+
+</body>
+</html>

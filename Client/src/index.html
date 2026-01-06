@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link href="./output.css" rel="stylesheet">
+</head>
+
+<body class="bg-[#faf7f2] text-gray-800">
+
+<!-- ================= NAVBAR ================= -->
+<nav class="bg-white shadow sticky top-0 z-50">
+  <div class="max-w-7xl mx-auto px-4 py-3">
+
+    <!-- TOP ROW -->
+    <div class="flex items-center justify-between gap-3">
+      <!-- Logo -->
+      <h1 class="text-xl sm:text-2xl font-bold text-orange-600 whitespace-nowrap">
+        🍲 RecipeShare
+      </h1>
+
+      <!-- Desktop Search -->
+      <input
+        id="searchInputDesktop"
+        type="text"
+        placeholder="Search recipes..."
+        class="hidden md:block w-1/3 px-4 py-2 rounded-xl border focus:outline-none focus:ring focus:ring-orange-300"
+      />
+
+      <!-- Profile + Logout -->
+      <div class="flex items-center gap-3">
+        <a href="profile.html">
+        <img
+          src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTypXUpuBp-yC6vlPgFeFiJNiERuMp2BYOInA&s"
+          class="w-9 h-9 rounded-full"
+        /></a>
+        <button onclick="logout()"
+          class="bg-orange-500 hover:bg-orange-600 text-white px-3 py-2 rounded-xl text-sm"
+        ><a href="login.html">
+          Logout</a>
+        </button>
+      </div>
+    </div>
+
+    <!-- MOBILE SEARCH (SECOND ROW) -->
+    <div class="mt-3 md:hidden">
+      <input
+        id="searchInputMobile"
+        type="text"
+        placeholder="Search recipes..."
+        class="w-full px-4 py-2 rounded-xl border focus:outline-none focus:ring focus:ring-orange-300"
+      />
+    </div>
+
+  </div>
+</nav>
+
+<!-- ================= HERO ================= -->
+<section class="max-w-7xl mx-auto px-4 py-8 text-center">
+  <h2 class="text-2xl sm:text-3xl font-semibold mb-2">
+    Share Your Favorite Recipes 🍽️
+  </h2>
+  <p class="text-gray-600 text-sm sm:text-base">
+    Discover, cook, and share delicious recipes from people around the world.
+  </p>
+</section>
+
+<!-- ================= RECIPE GRID ================= -->
+<section class="max-w-7xl mx-auto px-4 pb-16">
+  <div
+    id="recipes"
+    class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6"
+  ></div>
+</section>
+
+<!-- ================= MODAL ================= -->
+<!-- ================= MODAL ================= -->
+<div
+  id="recipeModal"
+  class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4"
+>
+  <div class="bg-white rounded-2xl max-w-2xl w-full p-5 relative overflow-y-auto max-h-[90vh]">
+
+    <button
+      onclick="closeModal()"
+      class="absolute top-3 right-3 text-gray-500 text-2xl"
+    >&times;</button>
+
+    <img id="modalImage" class="w-full h-48 object-cover rounded-xl mb-4"
+   />
+
+    <h2 id="modalTitle" class="text-xl font-bold mb-1"></h2>
+    <p id="modalAuthor" class="text-sm text-gray-500 mb-1"></p>
+    <p id="modalTime" class="text-sm mb-3"></p>
+
+    <h3 class="font-semibold mb-1">Description</h3>
+    <p id="modalDescription" class="mb-4"></p>
+
+    <h3 class="font-semibold mb-1">Ingredients</h3>
+    <ul id="modalIngredients" class="list-disc list-inside mb-4"></ul>
+
+    <!-- ========== FEEDBACK INPUT ========== -->
+    <h3 class="font-semibold mb-2">Leave Feedback</h3>
+
+    <div class="flex gap-2 mb-4">
+      <input
+        id="commentInput"
+        type="text"
+        placeholder="Write your feedback..."
+        class="flex-1 border rounded-xl px-4 py-2 focus:outline-none focus:ring focus:ring-orange-300"
+      />
+      <button
+        onclick="submitComment()"
+        class="bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-xl"
+      >
+        Post
+      </button>
+    </div>
+
+    <!-- ========== COMMENTS LIST ========== -->
+    <h3 class="font-semibold mb-2">Feedback</h3>
+    <div id="commentsList" class="space-y-3 text-sm"></div>
+
+  </div>
+</div>
+
+<!-- ================= SCRIPT ================= -->
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+
+  const API = "http://localhost:5000/api/recipes/recipe";
+  const token = localStorage.getItem("token");
+   console.log("Token:", token); // DEBUG
+  if (!token) {
+    window.location.href = "login.html";
+    return;
+  }
+ let allRecipes = [];
+let visibleRecipes = [];
+  async function fetchRecipes() {
+    try {
+      const res = await fetch(API, {
+        headers: {
+          "x-token": token,
+        }
+      });
+
+      if (!res.ok) {
+        console.error("❌ Failed to fetch recipes", res.status);
+        return;
+      }
+
+      const data = await res.json();
+
+      // ✅ Handle both response types
+      const recipes = Array.isArray(data) ? data : data.recipes;
+
+      console.log("✅ Recipes fetched:", recipes); // DEBUG  
+      allRecipes = recipes;
+    visibleRecipes = recipes;
+
+      renderRecipes(allRecipes);
+
+    } catch (err) {
+      console.error("❌ Error fetching recipes:", err);  
+    }
+  }
+
+  function renderRecipes(recipes) {
+    const container = document.getElementById("recipes");
+
+    if (!container) {
+      console.error("❌ #recipes container not found");
+      return;
+    }
+
+    container.innerHTML = "";
+
+    if (!recipes || recipes.length === 0) {
+      container.innerHTML =
+        "<p class='text-gray-500 col-span-full text-center'>No recipes found</p>";
+      return;
+    }
+
+    recipes.forEach(recipe => {
+  const card = document.createElement("div");
+  card.className =
+    "bg-white rounded-2xl shadow-lg hover:shadow-2xl transition";
+
+  card.innerHTML = `
+    <img
+      src="${recipe.imageUrl || 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQWDg_529nPl816JEFoaKAEzaeXWyw0YQ7v_8Vq0ctw&s'}"
+      class="recipe-image w-full h-44 object-cover rounded-t-2xl cursor-pointer"
+    />
+
+    <div class="p-4">
+      <span>By ${recipe.author?.name || "Unknown"}</span>
+
+      <h3 class="font-semibold text-lg mb-1">
+        ${recipe.title || "Untitled"}
+      </h3>
+
+      <p class="text-sm text-gray-600 line-clamp-2 mb-3">
+        ${recipe.description || "No description"}
+      </p>
+
+      <div class="flex justify-between items-center text-sm">
+       <button
+  class="like-btn flex items-center gap-1 text-gray-500"
+  data-id="${recipe._id}"
+>
+  <svg
+    class="heart w-6 h-6"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    stroke-width="2"
+  >
+    <path d="M20.8 4.6c-1.5-1.4-3.9-1.4-5.4 0L12 8l-3.4-3.4c-1.5-1.4-3.9-1.4-5.4 0-1.6 1.6-1.6 4.1 0 5.7L12 21l8.8-10.7c1.6-1.6 1.6-4.1 0-5.7z"/>
+  </svg>
+  <span class="like-count">${recipe.likesCount || 0}</span>
+</button>
+
+
+        <span>💬 ${recipe.commentsCount || 0}</span>
+      </div>
+    </div>
+  `;
+    const likeBtn = card.querySelector(".like-btn");
+const heart = likeBtn.querySelector(".heart");
+
+if (recipe.isLiked) {
+  heart.classList.add("fill-red-500", "text-red-500");
+  likeBtn.dataset.liked = "true";
+} else {
+  likeBtn.dataset.liked = "false";
+}
+
+  // ✅ ONLY IMAGE OPENS MODAL
+  const img = card.querySelector(".recipe-image");
+  img.addEventListener("click", (e) => {
+    e.stopPropagation(); // prevents any parent click
+    openModal(recipe);
+  });
+ const searchInput = document.getElementById("searchInputDesktop");
+
+searchInput.addEventListener("input", () => {
+  const query = searchInput.value.toLowerCase().trim();
+
+  // 🔥 When cleared → restore all recipes
+  if (query === "") {
+    renderRecipes(allRecipes);
+    return;
+  }
+
+  const results = allRecipes.filter(recipe =>
+    recipe.title.toLowerCase().includes(query) ||
+    recipe.description.toLowerCase().includes(query) ||
+    recipe.ingredients.join(" ").toLowerCase().includes(query)
+  );
+
+  renderRecipes(results);
+});
+
+  const like=card.querySelector(".like-btn");
+  like.addEventListener("click", async (e) => {
+     e.stopPropagation();
+     console.log("Like button clicked"); 
+  const btn = e.target.closest(".like-btn"); // ✅ FIX
+  if (!btn) return;
+
+  const recipeId = btn.dataset.id; // ✅ now exists
+  const token = localStorage.getItem("token");
+
+  if (!token) {
+    alert("Please login");
+    return;
+  }
+
+  const res = await fetch(
+    `http://localhost:5000/api/recipes/recipe/${recipeId}/like`,
+    {
+      method: "POST",
+      headers: {
+        "x-token": token,
+      },
+    }
+  );
+
+  const data = await res.json();
+
+  const countSpan = btn.querySelector(".like-count");
+  const heart = btn.querySelector(".heart");
+  let count = parseInt(countSpan.innerText);
+
+  if (data.liked) {
+    heart.classList.add("fill-red-500", "text-red-500");
+    countSpan.innerText = count + 1;
+  } else {
+    heart.classList.remove("fill-red-500", "text-red-500");
+    countSpan.innerText = count - 1;
+  }
+});
+
+
+
+  container.appendChild(card);
+});
+  }
+  
+
+  // ✅ THIS WAS MISSING
+  fetchRecipes();
+
+});
+let currentRecipe = null;
+
+function openModal(recipe) {
+  currentRecipe = recipe;
+
+  // Fill modal data
+  document.getElementById("modalImage").src =
+    recipe.imageUrl || "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQWDg_529nPl816JEFoaKAEzaeXWyw0YQ7v_8Vq0ctw&s";
+
+  document.getElementById("modalTitle").innerText =
+    recipe.title || "Untitled";
+
+  document.getElementById("modalAuthor").innerText =
+    `By ${recipe.author?.name || "Unknown"}`;
+
+  document.getElementById("modalTime").innerText =
+    recipe.time || "";
+
+  document.getElementById("modalDescription").innerText =
+    recipe.description || "";
+
+  // Ingredients
+  const ingredientsList = document.getElementById("modalIngredients");
+  ingredientsList.innerHTML = "";
+
+  (recipe.ingredients || []).forEach(item => {
+    const li = document.createElement("li");
+    li.innerText = item;
+    ingredientsList.appendChild(li);
+  });
+
+  // Comments (clear for now)
+  document.getElementById("commentsList").innerHTML = "";
+
+  // 🔥 THIS IS THE KEY LINE
+  document.getElementById("recipeModal").classList.remove("hidden");
+}
+
+function closeModal() {
+  document.getElementById("recipeModal").classList.add("hidden");
+}
+function submitComment() {
+  const commentInput = document.getElementById("commentInput");
+  const commentText = commentInput.value.trim();
+
+  if (!commentText) return;
+
+  // For demo, just append locally
+  const commentsList = document.getElementById("commentsList");
+  const commentDiv = document.createElement("div");
+  commentDiv.className = "bg-gray-100 p-3 rounded-xl";
+  commentDiv.innerText = commentText;
+  commentsList.prepend(commentDiv);
+
+  commentInput.value = "";
+}
+function logout() {
+  localStorage.removeItem("token");
+  window.location.href = "login.html";
+}
+//like button functionality
+document.addEventListener("click", (e) => {
+  const btn = e.target.closest(".like-btn");
+  if (!btn) return;
+
+  const heart = btn.querySelector(".heart");
+  const countSpan = btn.querySelector(".like-count");
+
+  let liked = btn.dataset.liked === "true";
+  let count = parseInt(countSpan.innerText);
+
+  if (!liked) {
+    // LIKE
+    btn.dataset.liked = "true";
+    heart.classList.add("fill-red-500", "text-red-500", "scale-125");
+    heart.classList.remove("fill-none");
+    countSpan.innerText = count + 1;
+  } else {
+    // UNLIKE
+    btn.dataset.liked = "false";
+    heart.classList.remove("fill-red-500", "text-red-500", "scale-125");
+    heart.classList.add("fill-none");
+    countSpan.innerText = count - 1;
+  }
+
+  // animation reset
+  setTimeout(() => {
+    heart.classList.remove("scale-125");
+  }, 150);
+});
+
+</script>
+
+
+</body>
+</html>
